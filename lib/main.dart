@@ -1,121 +1,276 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:task_note/popups.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const TaskNoteApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class Task {
+  final String id;
+  String title;
+  bool done;
 
-  // This widget is the root of your application.
+  Task({
+    required this.id,
+    required this.title,
+    this.done = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'done': done,
+      };
+
+  factory Task.fromJson(Map<String, dynamic> json) => Task(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        done: json['done'] as bool? ?? false,
+      );
+}
+
+class TaskNoteApp extends StatelessWidget {
+  const TaskNoteApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Task Notes',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const TaskListPage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class TaskListPage extends StatefulWidget {
+  const TaskListPage({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<TaskListPage> createState() => _TaskListPageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _TaskListPageState extends State<TaskListPage> {
+  static const _tasksKey = 'tasks';
+  static const _lastResetKey = 'last_reset';
 
-  void _incrementCounter() {
+  List<Task> _tasks = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTasks();
+  }
+
+  String _todayKey() {
+    final now = DateTime.now();
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    return '${now.year}-$month-$day';
+  }
+
+  Future<void> _loadTasks() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_tasksKey);
+    List<Task> tasks = [];
+    if (raw != null) {
+      try {
+        final decoded = jsonDecode(raw) as List<dynamic>;
+        tasks = decoded
+            .map((e) => Task.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } catch (_) {
+        tasks = [];
+      }
+    }
+
+    if (prefs.getString(_lastResetKey) != _todayKey()) {
+      for (final task in tasks) {
+        task.done = false;
+      }
+      await prefs.setString(_lastResetKey, _todayKey());
+      await _saveTasks(tasks);
+    }
+
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _tasks = tasks;
+      _loading = false;
     });
+  }
+
+  Future<void> _saveTasks([List<Task>? tasks]) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = tasks ?? _tasks;
+    await prefs.setString(
+      _tasksKey,
+      jsonEncode(list.map((t) => t.toJson()).toList()),
+    );
+  }
+
+  Future<void> _addTask() async {
+    final title = await showAddTaskPopup(context);
+    if (title == null || title.isEmpty) return;
+    final task = Task(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      title: title,
+    );
+    setState(() => _tasks.add(task));
+    await _saveTasks();
+  }
+
+  Future<void> _editTask(Task task) async {
+    final title = await showEditTaskPopup(context, initialValue: task.title);
+    if (title == null || title.isEmpty) return;
+    setState(() => task.title = title);
+    await _saveTasks();
+  }
+
+  Future<void> _deleteTask(Task task) async {
+    final confirmed = await showDeleteConfirmPopup(
+      context,
+      title: task.title,
+    );
+    if (confirmed != true) return;
+    setState(() => _tasks.remove(task));
+    await _saveTasks();
+  }
+
+  Future<void> _toggleTask(Task task, bool value) async {
+    setState(() => task.done = value);
+    await _saveTasks();
+  }
+
+  Future<void> _resetAllTasks() async {
+    setState(() {
+      for (final task in _tasks) {
+        task.done = false;
+      }
+    });
+    await _saveTasks();
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
+        title: const Text('Task Notes'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        actions: [
+          IconButton(
+            tooltip: 'Resetar tudo',
+            icon: const Icon(Icons.restart_alt),
+            onPressed: _tasks.isEmpty ? null : _resetAllTasks,
+          ),
+        ],
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _tasks.isEmpty
+              ? const _EmptyState()
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+                  itemCount: _tasks.length,
+                  itemBuilder: (context, index) {
+                    final task = _tasks[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .outlineVariant
+                              .withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: ListTile(
+                        leading: Checkbox(
+                          value: task.done,
+                          onChanged: (value) =>
+                              _toggleTask(task, value ?? false),
+                        ),
+                        title: Text(
+                          task.title,
+                          style: TextStyle(
+                            decoration:
+                                task.done ? TextDecoration.lineThrough : null,
+                            color: task.done
+                                ? Theme.of(context).colorScheme.outline
+                                : null,
+                          ),
+                        ),
+                        trailing: PopupMenuButton<String>(
+                          onSelected: (value) {
+                            if (value == 'edit') _editTask(task);
+                            if (value == 'delete') _deleteTask(task);
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: ListTile(
+                                leading: Icon(Icons.edit_outlined),
+                                title: Text('Editar'),
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: ListTile(
+                                leading: Icon(Icons.delete_outline),
+                                title: Text('Eliminar'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        onTap: () => _toggleTask(task, !task.done),
+                      ),
+                    );
+                  },
+                ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
+        onPressed: _addTask,
+        tooltip: 'Nova tarefa',
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.checklist_rounded,
+            size: 64,
+            color: Theme.of(context).colorScheme.outline,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Sem tarefas',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Toque no + para adicionar a tua primeira tarefa',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+          ),
+        ],
       ),
     );
   }
