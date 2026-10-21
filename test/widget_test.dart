@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:task_note/main.dart';
 import 'package:task_note/models.dart';
+import 'package:task_note/storage.dart';
 
 Task _task(String title, {bool done = false}) =>
     Task(id: 'id-$title', title: title, done: done);
@@ -13,10 +14,12 @@ Task _task(String title, {bool done = false}) =>
 AppData _seedData({
   Map<int, List<Task>>? days,
   Map<int, String>? lastReset,
+  Map<String, DayEntry>? history,
 }) {
   final data = AppData();
   days?.forEach((weekday, tasks) => data.days[weekday] = tasks);
   lastReset?.forEach((weekday, date) => data.lastReset[weekday] = date);
+  history?.forEach((date, entry) => data.history[date] = entry);
   return data;
 }
 
@@ -327,6 +330,37 @@ void main() {
     expect(find.text('Tarefa atual'), findsNothing);
   });
 
+  testWidgets('Separador de estatísticas mostra streaks e o dia de hoje',
+      (WidgetTester tester) async {
+    final today = DateTime.now();
+    SharedPreferences.setMockInitialValues({
+      'app_data': jsonEncode(_seedData(
+        days: {
+          today.weekday: [
+            _task('Tarefa de hoje', done: true),
+            _task('Outra tarefa', done: true),
+          ],
+        },
+        lastReset: {today.weekday: dateKey(today)},
+      ).toJson()),
+    });
+
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.descendant(
+      of: find.byType(NavigationBar),
+      matching: find.text('Estatísticas'),
+    ));
+    await tester.pumpAndSettle();
+
+    // Streak diário: hoje ficou completo → 1 dia seguido.
+    expect(find.text('dia seguido'), findsOneWidget);
+    expect(find.text('semanas completas'), findsOneWidget);
+    expect(find.text('2 de 2 concluídas'), findsOneWidget);
+    expect(find.text('100%'), findsOneWidget);
+  });
+
   testWidgets('Reseta as tarefas do dia num novo dia da semana',
       (WidgetTester tester) async {
     final today = DateTime.now();
@@ -364,5 +398,61 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_checkboxValue(tester, 0), isTrue);
+  });
+
+  group('streaks', () {
+    String k(int daysAgo) =>
+        dateKey(DateTime.now().subtract(Duration(days: daysAgo)));
+
+    test('80% é o limiar de dia completo', () {
+      expect(dailyStreak({k(0): const DayEntry(done: 8, total: 10)}), 1);
+      expect(dailyStreak({k(0): const DayEntry(done: 7, total: 10)}), 0);
+    });
+
+    test('streak diário conta dias consecutivos e salta dias sem registo',
+        () {
+      expect(dailyStreak({
+        k(0): const DayEntry(done: 4, total: 4),
+        k(2): const DayEntry(done: 5, total: 5),
+      }), 2);
+    });
+
+    test('dia com tarefas incompletas quebra o streak', () {
+      expect(dailyStreak({
+        k(0): const DayEntry(done: 4, total: 4),
+        k(1): const DayEntry(done: 1, total: 5),
+        k(2): const DayEntry(done: 5, total: 5),
+      }), 1);
+    });
+
+    test('hoje incompleto não quebra o streak anterior', () {
+      expect(dailyStreak({
+        k(0): const DayEntry(done: 0, total: 4),
+        k(1): const DayEntry(done: 5, total: 5),
+        k(2): const DayEntry(done: 5, total: 5),
+      }), 2);
+    });
+
+    test('streak semanal conta semanas completas consecutivas', () {
+      final today = DateTime.now();
+      final lastMonday =
+          today.subtract(Duration(days: today.weekday - 1 + 7));
+      final history = <String, DayEntry>{
+        for (var d = 0; d < 5; d++)
+          dateKey(lastMonday.add(Duration(days: d))):
+              const DayEntry(done: 5, total: 5),
+      };
+      expect(weeklyStreak(history), 1);
+
+      // Há duas semanas, um dia incompleto interrompe a contagem.
+      final twoWeeksAgo = lastMonday.subtract(const Duration(days: 7));
+      history[dateKey(twoWeeksAgo.add(const Duration(days: 2)))] =
+          const DayEntry(done: 3, total: 10);
+      expect(weeklyStreak(history), 1);
+    });
+
+    test('streak semanal é zero sem histórico', () {
+      expect(weeklyStreak(const {}), 0);
+    });
   });
 }

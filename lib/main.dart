@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'models.dart';
 import 'pages/routine.dart';
+import 'pages/stats.dart';
 import 'storage.dart';
 import 'theme.dart';
 
@@ -85,8 +86,7 @@ class _TaskNoteAppState extends State<TaskNoteApp> with WidgetsBindingObserver {
   }
 }
 
-/// Página raiz (fase 1): rotina semanal; navegação por separadores chega na
-/// fase 3, com as páginas de estatísticas e notas.
+/// Página raiz: navegação por separadores (Rotina, Estatísticas, ...).
 class RootPage extends StatefulWidget {
   const RootPage({
     super.key,
@@ -106,17 +106,42 @@ class RootPage extends StatefulWidget {
 }
 
 class _RootPageState extends State<RootPage> {
+  int _tab = 0;
+
   @override
   Widget build(BuildContext context) {
+    const titles = ['Task Notes', 'Estatísticas'];
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Task Notes'),
+        title: Text(titles[_tab]),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: RoutinePage(
-        data: widget.data,
-        storage: widget.storage,
-        onChanged: widget.onDataChanged,
+      body: IndexedStack(
+        index: _tab,
+        children: [
+          RoutinePage(
+            data: widget.data,
+            storage: widget.storage,
+            onChanged: widget.onDataChanged,
+          ),
+          StatsPage(data: widget.data),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        onDestinationSelected: (index) => setState(() => _tab = index),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.event_repeat_outlined),
+            selectedIcon: Icon(Icons.event_repeat),
+            label: 'Rotina',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.insights_outlined),
+            selectedIcon: Icon(Icons.insights),
+            label: 'Estatísticas',
+          ),
+        ],
       ),
     );
   }
