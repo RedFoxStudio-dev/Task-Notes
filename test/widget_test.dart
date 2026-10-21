@@ -400,6 +400,39 @@ void main() {
     expect(_checkboxValue(tester, 0), isTrue);
   });
 
+  testWidgets('Arquiva e restaura uma tarefa', (WidgetTester tester) async {
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    await _addTaskViaPopup(tester, 'Tarefa para arquivar');
+
+    // Arquivar pelo menu da tarefa.
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Arquivar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tarefa para arquivar'), findsNothing);
+
+    // Nas definições, a tarefa está no arquivo.
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('Tarefa para arquivar'), findsOneWidget);
+
+    // Restaurar devolve-a à rotina.
+    await tester.tap(find.byTooltip('Restaurar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tarefa para arquivar'), findsNothing);
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tarefa para arquivar'), findsOneWidget);
+
+    final prefs = await SharedPreferences.getInstance();
+    final archive = _stored(prefs)['archive'] as List<dynamic>;
+    expect(archive, isEmpty);
+  });
+
   group('streaks', () {
     String k(int daysAgo) =>
         dateKey(DateTime.now().subtract(Duration(days: daysAgo)));

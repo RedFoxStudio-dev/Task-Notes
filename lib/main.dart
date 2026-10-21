@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'models.dart';
 import 'pages/routine.dart';
+import 'pages/settings.dart';
 import 'pages/stats.dart';
 import 'storage.dart';
 import 'theme.dart';
@@ -115,6 +116,20 @@ class _RootPageState extends State<RootPage> {
       appBar: AppBar(
         title: Text(titles[_tab]),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          IconButton(
+            tooltip: 'Definições',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => SettingsPage(
+                data: widget.data,
+                storage: widget.storage,
+                onChanged: widget.onDataChanged,
+                onReplaceData: widget.onReplaceData,
+              ),
+            )),
+          ),
+        ],
       ),
       body: IndexedStack(
         index: _tab,

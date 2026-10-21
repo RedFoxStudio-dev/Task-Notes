@@ -82,6 +82,15 @@ class _RoutinePageState extends State<RoutinePage> {
     _saved();
   }
 
+  void _archiveTask(Task task) {
+    setState(() {
+      task.day = _selectedDay;
+      widget.data.archive.add(task);
+      _tasks.remove(task);
+    });
+    _saved();
+  }
+
   void _toggleAllTasks() {
     final allDone = _tasks.isNotEmpty && _tasks.every((t) => t.done);
     setState(() {
@@ -195,6 +204,7 @@ class _RoutinePageState extends State<RoutinePage> {
                                   scheme: scheme,
                                   onToggle: _toggleTask,
                                   onEdit: _editTask,
+                                  onArchive: _archiveTask,
                                   onDelete: _deleteTask,
                                   onReorder: _reorderPeriod,
                                 ),
@@ -227,6 +237,7 @@ class _PeriodSection extends StatelessWidget {
     required this.scheme,
     required this.onToggle,
     required this.onEdit,
+    required this.onArchive,
     required this.onDelete,
     required this.onReorder,
   });
@@ -236,6 +247,7 @@ class _PeriodSection extends StatelessWidget {
   final ColorScheme scheme;
   final void Function(Task task, bool value) onToggle;
   final Future<void> Function(Task task) onEdit;
+  final void Function(Task task) onArchive;
   final Future<void> Function(Task task) onDelete;
   final void Function(int period, int oldIndex, int newIndex) onReorder;
 
@@ -282,6 +294,7 @@ class _PeriodSection extends StatelessWidget {
               scheme: scheme,
               onToggle: onToggle,
               onEdit: () => onEdit(task),
+              onArchive: () => onArchive(task),
               onDelete: () => onDelete(task),
             );
           },
@@ -298,6 +311,7 @@ class _TaskCard extends StatelessWidget {
     required this.scheme,
     required this.onToggle,
     required this.onEdit,
+    required this.onArchive,
     required this.onDelete,
   });
 
@@ -305,6 +319,7 @@ class _TaskCard extends StatelessWidget {
   final ColorScheme scheme;
   final void Function(Task task, bool value) onToggle;
   final VoidCallback onEdit;
+  final VoidCallback onArchive;
   final VoidCallback onDelete;
 
   @override
@@ -342,6 +357,7 @@ class _TaskCard extends StatelessWidget {
         trailing: PopupMenuButton<String>(
           onSelected: (value) {
             if (value == 'edit') onEdit();
+            if (value == 'archive') onArchive();
             if (value == 'delete') onDelete();
           },
           itemBuilder: (context) => const [
@@ -350,6 +366,13 @@ class _TaskCard extends StatelessWidget {
               child: ListTile(
                 leading: Icon(Icons.edit_outlined),
                 title: Text('Editar'),
+              ),
+            ),
+            PopupMenuItem(
+              value: 'archive',
+              child: ListTile(
+                leading: Icon(Icons.archive_outlined),
+                title: Text('Arquivar'),
               ),
             ),
             PopupMenuItem(
