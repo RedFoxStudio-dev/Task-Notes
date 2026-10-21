@@ -184,6 +184,88 @@ void main() {
     expect(today, isEmpty);
   });
 
+  testWidgets('Copia as tarefas de outro dia (adicionar)',
+      (WidgetTester tester) async {
+    final today = DateTime.now();
+    final source = today.weekday % 7 + 1;
+    SharedPreferences.setMockInitialValues({
+      'app_data': jsonEncode(_seedData(
+        days: {
+          source: [_task('Tarefa importada')],
+        },
+      ).toJson()),
+    });
+
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Copiar de outro dia'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.text(kWeekdayLabels[source - 1]),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.text('Copiar'),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tarefa importada'), findsOneWidget);
+
+    final prefs = await SharedPreferences.getInstance();
+    final todayTasks = (_stored(prefs)['days'] as Map<String, dynamic>)
+        [today.weekday.toString()] as List<dynamic>;
+    expect(todayTasks, hasLength(1));
+    expect((todayTasks.first as Map<String, dynamic>)['title'],
+        'Tarefa importada');
+  });
+
+  testWidgets('Copia as tarefas de outro dia (substituir)',
+      (WidgetTester tester) async {
+    final today = DateTime.now();
+    final source = today.weekday % 7 + 1;
+    SharedPreferences.setMockInitialValues({
+      'app_data': jsonEncode(_seedData(
+        days: {
+          today.weekday: [_task('Tarefa atual')],
+          source: [_task('Importada 1'), _task('Importada 2')],
+        },
+      ).toJson()),
+    });
+
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Copiar de outro dia'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.text(kWeekdayLabels[source - 1]),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.text('Substituir as existentes'),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.text('Copiar'),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Importada 1'), findsOneWidget);
+    expect(find.text('Importada 2'), findsOneWidget);
+    expect(find.text('Tarefa atual'), findsNothing);
+  });
+
   testWidgets('Reseta as tarefas do dia num novo dia da semana',
       (WidgetTester tester) async {
     final today = DateTime.now();
