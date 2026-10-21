@@ -184,6 +184,67 @@ void main() {
     expect(today, isEmpty);
   });
 
+  testWidgets('Organiza as tarefas por manhã, tarde e noite',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    await _addTaskViaPopup(tester, 'Tomar café');
+
+    // Segunda tarefa no período da tarde.
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Estudar');
+    await tester.tap(find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.text('Tarde'),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Adicionar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Manhã'), findsOneWidget);
+    expect(find.text('Tarde'), findsOneWidget);
+    expect(find.text('Noite'), findsNothing);
+    expect(find.text('Tomar café'), findsOneWidget);
+    expect(find.text('Estudar'), findsOneWidget);
+  });
+
+  testWidgets('Tarefa pode ter um ícone', (WidgetTester tester) async {
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Ir ao ginásio');
+    await tester.tap(find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byIcon(Icons.fitness_center),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Adicionar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ir ao ginásio'), findsOneWidget);
+    // O ícone aparece apenas no cartão da tarefa (o pop-up já fechou).
+    expect(find.byIcon(Icons.fitness_center), findsOneWidget);
+  });
+
+  testWidgets('Mostra o progresso do dia', (WidgetTester tester) async {
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    await _addTaskViaPopup(tester, 'Tarefa 1');
+    await _addTaskViaPopup(tester, 'Tarefa 2');
+
+    expect(find.text('0 de 2 concluídas'), findsOneWidget);
+
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 de 2 concluídas'), findsOneWidget);
+  });
+
   testWidgets('Copia as tarefas de outro dia (adicionar)',
       (WidgetTester tester) async {
     final today = DateTime.now();

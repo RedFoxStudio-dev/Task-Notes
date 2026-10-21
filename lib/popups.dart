@@ -2,12 +2,133 @@ import 'package:flutter/material.dart';
 
 import 'models.dart';
 
-Future<String?> showAddTaskPopup(BuildContext context) {
-  return _showTaskInputPopup(
-    context,
-    dialogTitle: 'Nova Tarefa',
-    confirmLabel: 'Adicionar',
+/// Resultado do pop-up de criação/edição de tarefas.
+class TaskDraft {
+  final String title;
+  final int period;
+  final String? icon;
+
+  const TaskDraft({required this.title, required this.period, this.icon});
+}
+
+/// Pop-up para criar ou editar uma tarefa: título, período e ícone.
+Future<TaskDraft?> showTaskEditorPopup(
+  BuildContext context, {
+  Task? initial,
+}) {
+  return showDialog<TaskDraft>(
+    context: context,
+    builder: (context) => _TaskEditorDialog(initial: initial),
   );
+}
+
+class _TaskEditorDialog extends StatefulWidget {
+  const _TaskEditorDialog({this.initial});
+
+  final Task? initial;
+
+  @override
+  State<_TaskEditorDialog> createState() => _TaskEditorDialogState();
+}
+
+class _TaskEditorDialogState extends State<_TaskEditorDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initial?.title ?? '');
+  late int _period = widget.initial?.period ?? 0;
+  late String? _icon = widget.initial?.icon;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final title = _controller.text.trim();
+    if (title.isEmpty) return;
+    Navigator.of(context)
+        .pop(TaskDraft(title: title, period: _period, icon: _icon));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isNew = widget.initial == null;
+    return AlertDialog(
+      title: Text(isNew ? 'Nova Tarefa' : 'Editar Tarefa'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              onSubmitted: (_) => _submit(),
+              decoration: const InputDecoration(
+                labelText: 'Tarefa',
+                hintText: 'Ex.: Beber 2L de água',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text('Período',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(color: scheme.outline)),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (var period = 0; period < 3; period++)
+                  ChoiceChip(
+                    label: Text(kPeriodLabels[period]),
+                    selected: _period == period,
+                    onSelected: (_) => setState(() => _period = period),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text('Ícone',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(color: scheme.outline)),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                IconButton(
+                  tooltip: 'Sem ícone',
+                  isSelected: _icon == null,
+                  icon: const Icon(Icons.block_outlined),
+                  onPressed: () => setState(() => _icon = null),
+                ),
+                for (final entry in kTaskIcons.entries)
+                  IconButton(
+                    tooltip: entry.key,
+                    isSelected: _icon == entry.key,
+                    icon: Icon(entry.value),
+                    onPressed: () => setState(() => _icon = entry.key),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(isNew ? 'Adicionar' : 'Guardar'),
+        ),
+      ],
+    );
+  }
 }
 
 /// Escolha de cópia entre dias.
@@ -107,15 +228,33 @@ class _CopyDayDialogState extends State<_CopyDayDialog> {
   }
 }
 
-Future<String?> showEditTaskPopup(
+/// Confirmação de eliminação (tarefa, nota, arquivo...).
+Future<bool?> showConfirmPopup(
   BuildContext context, {
-  required String initialValue,
+  required String title,
+  required String content,
+  String confirmLabel = 'Eliminar',
 }) {
-  return _showTaskInputPopup(
-    context,
-    dialogTitle: 'Editar Tarefa',
-    confirmLabel: 'Guardar',
-    initialValue: initialValue,
+  return showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(content),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.error,
+            foregroundColor: Theme.of(context).colorScheme.onError,
+          ),
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(confirmLabel),
+        ),
+      ],
+    ),
   );
 }
 
@@ -123,85 +262,17 @@ Future<bool?> showDeleteConfirmPopup(
   BuildContext context, {
   required String title,
 }) {
-  return showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Eliminar Tarefa'),
-      content: Text('Queres eliminar "$title"?'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.error,
-            foregroundColor: Theme.of(context).colorScheme.onError,
-          ),
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Eliminar'),
-        ),
-      ],
-    ),
+  return showConfirmPopup(
+    context,
+    title: 'Eliminar Tarefa',
+    content: 'Queres eliminar "$title"?',
   );
 }
 
 Future<bool?> showDeleteAllConfirmPopup(BuildContext context) {
-  return showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Eliminar Tudo'),
-      content: const Text('Queres eliminar todas as tarefas?'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.error,
-            foregroundColor: Theme.of(context).colorScheme.onError,
-          ),
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Eliminar'),
-        ),
-      ],
-    ),
-  );
-}
-
-Future<String?> _showTaskInputPopup(
-  BuildContext context, {
-  required String dialogTitle,
-  required String confirmLabel,
-  String initialValue = '',
-}) {
-  final controller = TextEditingController(text: initialValue);
-  return showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(dialogTitle),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(
-          labelText: 'Tarefa',
-          hintText: 'Ex.: Beber 2L de água',
-          border: OutlineInputBorder(),
-        ),
-        onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-          child: Text(confirmLabel),
-        ),
-      ],
-    ),
+  return showConfirmPopup(
+    context,
+    title: 'Eliminar Tudo',
+    content: 'Queres eliminar todas as tarefas?',
   );
 }

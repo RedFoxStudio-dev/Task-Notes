@@ -5,7 +5,8 @@ import '../popups.dart';
 import '../storage.dart';
 
 /// Rotina semanal: um conjunto de tarefas por dia da semana, com filtro de
-/// dias, progresso, cópia entre dias e reordenação por toque longo.
+/// dias, progresso, períodos (manhã/tarde/noite), ícones, cópia entre dias e
+/// reordenação por toque longo.
 class RoutinePage extends StatefulWidget {
   const RoutinePage({
     super.key,
@@ -36,18 +37,28 @@ class _RoutinePageState extends State<RoutinePage> {
   }
 
   Future<void> _addTask() async {
-    final title = await showAddTaskPopup(context);
-    if (!mounted || title == null || title.isEmpty) return;
+    final draft = await showTaskEditorPopup(context);
+    if (!mounted || draft == null || draft.title.isEmpty) return;
     setState(() {
-      _tasks.add(Task(id: widget.storage.newId(), title: title));
+      _tasks.add(Task(
+        id: widget.storage.newId(),
+        title: draft.title,
+        period: draft.period,
+        icon: draft.icon,
+      ));
     });
     _saved();
   }
 
   Future<void> _editTask(Task task) async {
-    final title = await showEditTaskPopup(context, initialValue: task.title);
-    if (!mounted || title == null || title.isEmpty) return;
-    setState(() => task.title = title);
+    final draft = await showTaskEditorPopup(context, initial: task);
+    if (!mounted || draft == null || draft.title.isEmpty) return;
+    setState(() {
+      task
+        ..title = draft.title
+        ..period = draft.period
+        ..icon = draft.icon;
+    });
     _saved();
   }
 
@@ -105,11 +116,16 @@ class _RoutinePageState extends State<RoutinePage> {
     _saved();
   }
 
-  void _onReorder(int oldIndex, int newIndex) {
-    // O newIndex do onReorderItem já vem ajustado ao item removido.
+  /// Reordena dentro de uma secção de período. Os índices recebidos são
+  /// relativos à secção; mapeamo-los para a lista completa do dia.
+  void _reorderPeriod(int period, int oldIndex, int newIndex) {
+    final sectionIndices = <int>[
+      for (var i = 0; i < _tasks.length; i++)
+        if (_tasks[i].period == period) i,
+    ];
     setState(() {
-      final task = _tasks.removeAt(oldIndex);
-      _tasks.insert(newIndex, task);
+      final task = _tasks.removeAt(sectionIndices[oldIndex]);
+      _tasks.insert(sectionIndices[newIndex], task);
     });
     _saved();
   }
@@ -169,26 +185,19 @@ class _RoutinePageState extends State<RoutinePage> {
                           dayLabel: kWeekdayLabels[_selectedDay - 1],
                         )
                       : ListView(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 96),
                           children: [
-                            ReorderableListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              buildDefaultDragHandles: false,
-                              itemCount: _tasks.length,
-                              onReorderItem: _onReorder,
-                              itemBuilder: (context, index) {
-                                final task = _tasks[index];
-                                return _TaskCard(
-                                  key: ValueKey(task.id),
-                                  task: task,
+                            for (var period = 0; period < 3; period++)
+                              if (_tasks.any((t) => t.period == period))
+                                _PeriodSection(
+                                  period: period,
+                                  tasks: _tasks,
                                   scheme: scheme,
                                   onToggle: _toggleTask,
-                                  onEdit: () => _editTask(task),
-                                  onDelete: () => _deleteTask(task),
-                                );
-                              },
-                            ),
+                                  onEdit: _editTask,
+                                  onDelete: _deleteTask,
+                                  onReorder: _reorderPeriod,
+                                ),
                             const SizedBox(height: 8),
                             Center(
                               child: Text(
@@ -211,6 +220,77 @@ class _RoutinePageState extends State<RoutinePage> {
   }
 }
 
+class _PeriodSection extends StatelessWidget {
+  const _PeriodSection({
+    required this.period,
+    required this.tasks,
+    required this.scheme,
+    required this.onToggle,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onReorder,
+  });
+
+  final int period;
+  final List<Task> tasks;
+  final ColorScheme scheme;
+  final void Function(Task task, bool value) onToggle;
+  final Future<void> Function(Task task) onEdit;
+  final Future<void> Function(Task task) onDelete;
+  final void Function(int period, int oldIndex, int newIndex) onReorder;
+
+  @override
+  Widget build(BuildContext context) {
+    final sectionTasks = [
+      for (final task in tasks)
+        if (task.period == period) task,
+    ];
+    final doneCount = sectionTasks.where((t) => t.done).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
+          child: Row(
+            children: [
+              Icon(kPeriodIcons[period], size: 18, color: scheme.primary),
+              const SizedBox(width: 6),
+              Text(kPeriodLabels[period],
+                  style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(width: 8),
+              Text('$doneCount/${sectionTasks.length}',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: scheme.outline)),
+            ],
+          ),
+        ),
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
+          itemCount: sectionTasks.length,
+          onReorderItem: (oldIndex, newIndex) =>
+              onReorder(period, oldIndex, newIndex),
+          itemBuilder: (context, index) {
+            final task = sectionTasks[index];
+            return _TaskCard(
+              key: ValueKey(task.id),
+              task: task,
+              scheme: scheme,
+              onToggle: onToggle,
+              onEdit: () => onEdit(task),
+              onDelete: () => onDelete(task),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
 class _TaskCard extends StatelessWidget {
   const _TaskCard({
     super.key,
@@ -229,6 +309,7 @@ class _TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final icon = taskIcon(task.icon);
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,
@@ -241,12 +322,22 @@ class _TaskCard extends StatelessWidget {
           value: task.done,
           onChanged: (value) => onToggle(task, value ?? false),
         ),
-        title: Text(
-          task.title,
-          style: TextStyle(
-            decoration: task.done ? TextDecoration.lineThrough : null,
-            color: task.done ? scheme.outline : null,
-          ),
+        title: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 18, color: scheme.primary),
+              const SizedBox(width: 6),
+            ],
+            Expanded(
+              child: Text(
+                task.title,
+                style: TextStyle(
+                  decoration: task.done ? TextDecoration.lineThrough : null,
+                  color: task.done ? scheme.outline : null,
+                ),
+              ),
+            ),
+          ],
         ),
         trailing: PopupMenuButton<String>(
           onSelected: (value) {
