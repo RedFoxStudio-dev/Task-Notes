@@ -148,12 +148,21 @@ class _TaskListPageState extends State<TaskListPage> {
     await _saveTasks();
   }
 
-  Future<void> _resetAllTasks() async {
+  Future<void> _toggleAllTasks() async {
+    final allDone = _tasks.isNotEmpty && _tasks.every((t) => t.done);
+    final target = !allDone;
     setState(() {
       for (final task in _tasks) {
-        task.done = false;
+        task.done = target;
       }
     });
+    await _saveTasks();
+  }
+
+  Future<void> _deleteAllTasks() async {
+    final confirmed = await showDeleteAllConfirmPopup(context);
+    if (confirmed != true) return;
+    setState(() => _tasks.clear());
     await _saveTasks();
   }
 
@@ -165,9 +174,14 @@ class _TaskListPageState extends State<TaskListPage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
-            tooltip: 'Resetar tudo',
-            icon: const Icon(Icons.restart_alt),
-            onPressed: _tasks.isEmpty ? null : _resetAllTasks,
+            tooltip: 'Marcar/Desmarcar tudo',
+            icon: const Icon(Icons.done_all),
+            onPressed: _tasks.isEmpty ? null : _toggleAllTasks,
+          ),
+          IconButton(
+            tooltip: 'Eliminar tudo',
+            icon: const Icon(Icons.delete_sweep_outlined),
+            onPressed: _tasks.isEmpty ? null : _deleteAllTasks,
           ),
         ],
       ),

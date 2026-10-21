@@ -47,6 +47,30 @@ Future<bool?> showDeleteConfirmPopup(
   );
 }
 
+Future<bool?> showDeleteAllConfirmPopup(BuildContext context) {
+  return showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Eliminar Tudo'),
+      content: const Text('Queres eliminar todas as tarefas?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.error,
+            foregroundColor: Theme.of(context).colorScheme.onError,
+          ),
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Eliminar'),
+        ),
+      ],
+    ),
+  );
+}
+
 Future<String?> _showTaskInputPopup(
   BuildContext context, {
   required String dialogTitle,

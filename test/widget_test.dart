@@ -20,6 +20,13 @@ Future<void> _addTaskViaPopup(WidgetTester tester, String title) async {
   await tester.pumpAndSettle();
 }
 
+bool _checkboxValue(WidgetTester tester, int index) =>
+    tester.widget<Checkbox>(find.byType(Checkbox).at(index)).value!;
+
+List<Map<String, dynamic>> _storedTasks(SharedPreferences prefs) =>
+    (jsonDecode(prefs.getString('tasks')!) as List<dynamic>)
+        .cast<Map<String, dynamic>>();
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -60,7 +67,30 @@ void main() {
     expect(text.style?.decoration, TextDecoration.lineThrough);
   });
 
-  testWidgets('Botão de reset desmarca todas as tarefas na hora',
+  testWidgets('Botão alternar: com algumas marcadas, ativa todas',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    await _addTaskViaPopup(tester, 'Tarefa 1');
+    await _addTaskViaPopup(tester, 'Tarefa 2');
+
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pumpAndSettle();
+    expect(_checkboxValue(tester, 0), isTrue);
+    expect(_checkboxValue(tester, 1), isFalse);
+
+    await tester.tap(find.byIcon(Icons.done_all));
+    await tester.pumpAndSettle();
+
+    expect(_checkboxValue(tester, 0), isTrue);
+    expect(_checkboxValue(tester, 1), isTrue);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(_storedTasks(prefs).every((t) => t['done'] == true), isTrue);
+  });
+
+  testWidgets('Botão alternar: com todas marcadas, desativa todas',
       (WidgetTester tester) async {
     await tester.pumpWidget(const TaskNoteApp());
     await tester.pumpAndSettle();
@@ -72,17 +102,46 @@ void main() {
     await tester.tap(find.byType(Checkbox).last);
     await tester.pumpAndSettle();
 
-    expect(find.byType(Checkbox).first, checked(true));
-
-    await tester.tap(find.byIcon(Icons.restart_alt));
+    await tester.tap(find.byIcon(Icons.done_all));
     await tester.pumpAndSettle();
 
-    expect(find.byType(Checkbox), everyCheckbox(false));
+    expect(_checkboxValue(tester, 0), isFalse);
+    expect(_checkboxValue(tester, 1), isFalse);
 
     final prefs = await SharedPreferences.getInstance();
-    final tasks =
-        (jsonDecode(prefs.getString('tasks')!) as List<dynamic>).cast<Map>();
-    expect(tasks.every((t) => t['done'] == false), isTrue);
+    expect(_storedTasks(prefs).every((t) => t['done'] == false), isTrue);
+  });
+
+  testWidgets('Eliminar tudo pede confirmação e apaga as tarefas',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    await _addTaskViaPopup(tester, 'Tarefa 1');
+    await _addTaskViaPopup(tester, 'Tarefa 2');
+
+    await tester.tap(find.byIcon(Icons.delete_sweep_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Eliminar Tudo'), findsOneWidget);
+    expect(find.text('Queres eliminar todas as tarefas?'), findsOneWidget);
+
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tarefa 1'), findsOneWidget);
+    expect(find.text('Tarefa 2'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.delete_sweep_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Eliminar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sem tarefas'), findsOneWidget);
+    expect(find.text('Tarefa 1'), findsNothing);
+    expect(find.text('Tarefa 2'), findsNothing);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('tasks'), '[]');
   });
 
   testWidgets('Reseta tarefas desmarcando-as num novo dia',
@@ -98,7 +157,7 @@ void main() {
     await tester.pumpWidget(const TaskNoteApp());
     await tester.pumpAndSettle();
 
-    expect(find.byType(Checkbox), everyCheckbox(false));
+    expect(_checkboxValue(tester, 0), isFalse);
 
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('last_reset'), _dateKey(DateTime.now()));
@@ -116,6 +175,6 @@ void main() {
     await tester.pumpWidget(const TaskNoteApp());
     await tester.pumpAndSettle();
 
-    expect(find.byType(Checkbox), everyCheckbox(true));
+    expect(_checkboxValue(tester, 0), isTrue);
   });
 }
