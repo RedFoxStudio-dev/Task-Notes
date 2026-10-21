@@ -5,12 +5,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:task_note/main.dart';
+import 'package:task_note/models.dart';
 
-String _dateKey(DateTime date) {
-  final month = date.month.toString().padLeft(2, '0');
-  final day = date.day.toString().padLeft(2, '0');
-  return '${date.year}-$month-$day';
+Task _task(String title, {bool done = false}) =>
+    Task(id: 'id-$title', title: title, done: done);
+
+AppData _seedData({
+  Map<int, List<Task>>? days,
+  Map<int, String>? lastReset,
+}) {
+  final data = AppData();
+  days?.forEach((weekday, tasks) => data.days[weekday] = tasks);
+  lastReset?.forEach((weekday, date) => data.lastReset[weekday] = date);
+  return data;
 }
+
+Map<String, dynamic> _stored(SharedPreferences prefs) =>
+    jsonDecode(prefs.getString('app_data')!) as Map<String, dynamic>;
 
 Future<void> _addTaskViaPopup(WidgetTester tester, String title) async {
   await tester.tap(find.byIcon(Icons.add));
@@ -23,13 +34,31 @@ Future<void> _addTaskViaPopup(WidgetTester tester, String title) async {
 bool _checkboxValue(WidgetTester tester, int index) =>
     tester.widget<Checkbox>(find.byType(Checkbox).at(index)).value!;
 
-List<Map<String, dynamic>> _storedTasks(SharedPreferences prefs) =>
-    (jsonDecode(prefs.getString('tasks')!) as List<dynamic>)
-        .cast<Map<String, dynamic>>();
-
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  testWidgets('Migra os dados da v1 e desmarca as tarefas num novo dia',
+      (WidgetTester tester) async {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    SharedPreferences.setMockInitialValues({
+      'tasks': jsonEncode([
+        {'id': '1', 'title': 'Tarefa antiga', 'done': true},
+      ]),
+      'last_reset': dateKey(yesterday),
+    });
+
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tarefa antiga'), findsOneWidget);
+    expect(_checkboxValue(tester, 0), isFalse);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('tasks'), isNull);
+    expect(prefs.getString('last_reset'), isNull);
+    expect(prefs.getString('app_data'), isNotNull);
   });
 
   testWidgets('Mostra estado vazio quando não há tarefas',
@@ -65,6 +94,15 @@ void main() {
 
     final text = tester.widget<Text>(find.text('Tarefa teste'));
     expect(text.style?.decoration, TextDecoration.lineThrough);
+
+    // O histórico de hoje fica atualizado (base dos streaks).
+    final prefs = await SharedPreferences.getInstance();
+    final history =
+        (_stored(prefs)['history'] as Map<String, dynamic>)[dateKey(DateTime.now())]
+            as Map<String, dynamic>?;
+    expect(history, isNotNull);
+    expect(history!['done'], 1);
+    expect(history['total'], 1);
   });
 
   testWidgets('Botão alternar: com algumas marcadas, ativa todas',
@@ -87,7 +125,10 @@ void main() {
     expect(_checkboxValue(tester, 1), isTrue);
 
     final prefs = await SharedPreferences.getInstance();
-    expect(_storedTasks(prefs).every((t) => t['done'] == true), isTrue);
+    final today = (_stored(prefs)['days'] as Map<String, dynamic>)
+        [DateTime.now().weekday.toString()] as List<dynamic>;
+    expect(today.every((t) => (t as Map<String, dynamic>)['done'] == true),
+        isTrue);
   });
 
   testWidgets('Botão alternar: com todas marcadas, desativa todas',
@@ -107,9 +148,6 @@ void main() {
 
     expect(_checkboxValue(tester, 0), isFalse);
     expect(_checkboxValue(tester, 1), isFalse);
-
-    final prefs = await SharedPreferences.getInstance();
-    expect(_storedTasks(prefs).every((t) => t['done'] == false), isTrue);
   });
 
   testWidgets('Eliminar tudo pede confirmação e apaga as tarefas',
@@ -141,35 +179,42 @@ void main() {
     expect(find.text('Tarefa 2'), findsNothing);
 
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('tasks'), '[]');
+    final today = (_stored(prefs)['days'] as Map<String, dynamic>)
+        [DateTime.now().weekday.toString()] as List<dynamic>;
+    expect(today, isEmpty);
   });
 
-  testWidgets('Reseta tarefas desmarcando-as num novo dia',
+  testWidgets('Reseta as tarefas do dia num novo dia da semana',
       (WidgetTester tester) async {
-    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final today = DateTime.now();
     SharedPreferences.setMockInitialValues({
-      'tasks': jsonEncode([
-        {'id': '1', 'title': 'Tarefa antiga', 'done': true},
-      ]),
-      'last_reset': _dateKey(yesterday),
+      'app_data': jsonEncode(_seedData(
+        days: {today.weekday: [_task('Tarefa de hoje', done: true)]},
+        lastReset: {
+          today.weekday: dateKey(today.subtract(const Duration(days: 7))),
+        },
+      ).toJson()),
     });
 
     await tester.pumpWidget(const TaskNoteApp());
     await tester.pumpAndSettle();
 
+    expect(find.text('Tarefa de hoje'), findsOneWidget);
     expect(_checkboxValue(tester, 0), isFalse);
 
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('last_reset'), _dateKey(DateTime.now()));
+    final lastReset = _stored(prefs)['lastReset'] as Map<String, dynamic>;
+    expect(lastReset[today.weekday.toString()], dateKey(today));
   });
 
   testWidgets('Não reseta as tarefas no mesmo dia',
       (WidgetTester tester) async {
+    final today = DateTime.now();
     SharedPreferences.setMockInitialValues({
-      'tasks': jsonEncode([
-        {'id': '1', 'title': 'Tarefa de hoje', 'done': true},
-      ]),
-      'last_reset': _dateKey(DateTime.now()),
+      'app_data': jsonEncode(_seedData(
+        days: {today.weekday: [_task('Tarefa de hoje', done: true)]},
+        lastReset: {today.weekday: dateKey(today)},
+      ).toJson()),
     });
 
     await tester.pumpWidget(const TaskNoteApp());
