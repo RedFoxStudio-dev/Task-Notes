@@ -78,7 +78,10 @@ class _SettingsPageState extends State<SettingsPage> {
     await Clipboard.setData(ClipboardData(text: json));
     var shared = false;
     try {
-      await Share.share(json, subject: 'Task Notes — backup');
+      await SharePlus.instance.share(ShareParams(
+        text: json,
+        subject: 'Task Notes — backup',
+      ));
       shared = true;
     } catch (_) {
       // Sem partilha disponível (ex.: plataforma sem suporte).

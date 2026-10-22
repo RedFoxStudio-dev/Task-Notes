@@ -474,6 +474,42 @@ void main() {
     expect(_stored(prefs)['notes'], isEmpty);
   });
 
+  test('Backup: round-trip export → import preserva tudo', () {
+    final data = AppData()
+      ..days[1] = [
+        Task(id: 'a', title: 'Segunda', period: 1, icon: 'home'),
+      ]
+      ..days[3] = [
+        Task(id: 'b', title: 'Quarta', done: true),
+      ]
+      ..lastReset[1] = '2026-10-19'
+      ..history['2026-10-19'] = const DayEntry(done: 3, total: 4)
+      ..archive.add(Task(id: 'c', title: 'Arquivada', day: 2))
+      ..notes.add(Note(
+        id: 'n1',
+        title: 'Nota',
+        content: 'Texto',
+        fontFamily: 'caveat',
+        fontSize: 20,
+        updatedAt: 1234,
+      ))
+      ..themeMode = 'dark';
+
+    final storage = AppStorage();
+    final json = storage.exportJson(data);
+    final restored = storage.importJson(json);
+
+    expect(restored, isNotNull);
+    expect(restored!.toJson(), data.toJson());
+  });
+
+  test('Backup: rejeita JSON inválido', () {
+    final storage = AppStorage();
+    expect(storage.importJson('isto não é json'), isNull);
+    expect(storage.importJson('[1, 2, 3]'), isNull);
+    expect(storage.importJson('{"foo": 1}'), isNull);
+  });
+
   group('streaks', () {
     String k(int daysAgo) =>
         dateKey(DateTime.now().subtract(Duration(days: daysAgo)));
