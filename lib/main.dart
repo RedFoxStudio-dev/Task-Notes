@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'models.dart';
+import 'pages/notes.dart';
 import 'pages/routine.dart';
 import 'pages/settings.dart';
 import 'pages/stats.dart';
@@ -111,7 +112,7 @@ class _RootPageState extends State<RootPage> {
 
   @override
   Widget build(BuildContext context) {
-    const titles = ['Task Notes', 'Estatísticas'];
+    const titles = ['Task Notes', 'Estatísticas', 'Notas'];
     return Scaffold(
       appBar: AppBar(
         title: Text(titles[_tab]),
@@ -140,6 +141,11 @@ class _RootPageState extends State<RootPage> {
             onChanged: widget.onDataChanged,
           ),
           StatsPage(data: widget.data),
+          NotesPage(
+            data: widget.data,
+            storage: widget.storage,
+            onChanged: widget.onDataChanged,
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -155,6 +161,11 @@ class _RootPageState extends State<RootPage> {
             icon: Icon(Icons.insights_outlined),
             selectedIcon: Icon(Icons.insights),
             label: 'Estatísticas',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.sticky_note_2_outlined),
+            selectedIcon: Icon(Icons.sticky_note_2),
+            label: 'Notas',
           ),
         ],
       ),

@@ -146,6 +146,7 @@ class _RoutinePageState extends State<RoutinePage> {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
+        heroTag: 'routine-fab',
         onPressed: _addTask,
         tooltip: 'Nova tarefa',
         child: const Icon(Icons.add),

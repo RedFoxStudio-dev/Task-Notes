@@ -433,6 +433,47 @@ void main() {
     expect(archive, isEmpty);
   });
 
+  testWidgets('Cria, guarda e elimina uma nota', (WidgetTester tester) async {
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.descendant(
+      of: find.byType(NavigationBar),
+      matching: find.text('Notas'),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sem notas'), findsOneWidget);
+
+    // Criar nota e escrever título + conteúdo.
+    await tester.tap(find.byTooltip('Nova nota'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), 'Compras');
+    await tester.enterText(find.byType(TextField).at(1), 'Leite e pão');
+    await tester.pumpAndSettle();
+
+    // Voltar: a nota aparece na lista.
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Compras'), findsOneWidget);
+    expect(find.text('Leite e pão'), findsOneWidget);
+
+    final prefs = await SharedPreferences.getInstance();
+    final notes = _stored(prefs)['notes'] as List<dynamic>;
+    expect(notes, hasLength(1));
+    expect((notes.first as Map<String, dynamic>)['title'], 'Compras');
+    expect((notes.first as Map<String, dynamic>)['content'], 'Leite e pão');
+
+    // Eliminar com confirmação.
+    await tester.tap(find.byTooltip('Eliminar nota'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Eliminar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sem notas'), findsOneWidget);
+    expect(_stored(prefs)['notes'], isEmpty);
+  });
+
   group('streaks', () {
     String k(int daysAgo) =>
         dateKey(DateTime.now().subtract(Duration(days: daysAgo)));
