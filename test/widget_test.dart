@@ -510,6 +510,26 @@ void main() {
     expect(storage.importJson('{"foo": 1}'), isNull);
   });
 
+  testWidgets('Escolher tema escuro nas definições', (WidgetTester tester) async {
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Escuro'));
+    await tester.pumpAndSettle();
+
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.themeMode, ThemeMode.dark);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      (_stored(prefs)['settings'] as Map<String, dynamic>)['themeMode'],
+      'dark',
+    );
+  });
+
   group('streaks', () {
     String k(int daysAgo) =>
         dateKey(DateTime.now().subtract(Duration(days: daysAgo)));

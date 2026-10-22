@@ -104,6 +104,38 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Text('Aparência', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          SegmentedButton<ThemeMode>(
+            segments: const [
+              ButtonSegment(
+                value: ThemeMode.system,
+                icon: Icon(Icons.brightness_auto_outlined),
+                label: Text('Sistema'),
+              ),
+              ButtonSegment(
+                value: ThemeMode.light,
+                icon: Icon(Icons.light_mode_outlined),
+                label: Text('Claro'),
+              ),
+              ButtonSegment(
+                value: ThemeMode.dark,
+                icon: Icon(Icons.dark_mode_outlined),
+                label: Text('Escuro'),
+              ),
+            ],
+            selected: {widget.data.theme},
+            onSelectionChanged: (selection) {
+              final mode = selection.first;
+              widget.data.themeMode = switch (mode) {
+                ThemeMode.light => 'light',
+                ThemeMode.dark => 'dark',
+                _ => 'system',
+              };
+              widget.onChanged();
+            },
+          ),
+          const SizedBox(height: 24),
           Text('Arquivo', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           if (widget.data.archive.isEmpty)
