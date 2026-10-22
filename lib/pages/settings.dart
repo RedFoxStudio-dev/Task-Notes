@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models.dart';
 import '../popups.dart';
@@ -41,6 +43,54 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!mounted || confirmed != true) return;
     setState(() => widget.data.archive.remove(task));
     widget.onChanged();
+  }
+
+  /// Substitui todos os dados por um backup importado.
+  Future<void> _import() async {
+    final raw = await showImportBackupPopup(context);
+    if (!mounted || raw == null || raw.isEmpty) return;
+
+    final parsed = widget.storage.importJson(raw);
+    if (parsed == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content:
+            Text('Backup inválido: o JSON não está no formato esperado.'),
+      ));
+      return;
+    }
+
+    final confirmed = await showConfirmPopup(
+      context,
+      title: 'Importar backup',
+      content: 'Isto vai substituir todos os dados atuais (rotina, histórico, '
+          'notas, arquivo e tema). Continuar?',
+      confirmLabel: 'Importar',
+    );
+    if (!mounted || confirmed != true) return;
+    widget.onReplaceData(parsed);
+  }
+
+  /// Exporta tudo (rotina, histórico, notas, arquivo e tema) como JSON,
+  /// copiando-o para a área de transferência e abrindo a partilha.
+  Future<void> _export() async {
+    final json = widget.storage.exportJson(widget.data);
+    await Clipboard.setData(ClipboardData(text: json));
+    var shared = false;
+    try {
+      await Share.share(json, subject: 'Task Notes — backup');
+      shared = true;
+    } catch (_) {
+      // Sem partilha disponível (ex.: plataforma sem suporte).
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(
+        shared
+            ? 'Backup partilhado e copiado para a área de transferência.'
+            : 'Backup copiado para a área de transferência.',
+      ),
+    ));
   }
 
   @override
@@ -91,6 +141,32 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
             ),
+          const SizedBox(height: 24),
+          Text('Backup', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Card(
+            elevation: 0,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.share_outlined),
+                  title: const Text('Exportar backup'),
+                  subtitle: const Text(
+                    'Partilha ou copia todos os dados (JSON).',
+                  ),
+                  onTap: _export,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.file_download_outlined),
+                  title: const Text('Importar backup'),
+                  subtitle: const Text(
+                    'Cola um JSON exportado anteriormente.',
+                  ),
+                  onTap: _import,
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 24),
           Center(
             child: Text(

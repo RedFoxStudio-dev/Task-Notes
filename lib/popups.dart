@@ -228,6 +228,58 @@ class _CopyDayDialogState extends State<_CopyDayDialog> {
   }
 }
 
+/// Pop-up para colar o JSON de um backup a importar.
+Future<String?> showImportBackupPopup(BuildContext context) {
+  return showDialog<String>(
+    context: context,
+    builder: (context) => const _ImportBackupDialog(),
+  );
+}
+
+class _ImportBackupDialog extends StatefulWidget {
+  const _ImportBackupDialog();
+
+  @override
+  State<_ImportBackupDialog> createState() => _ImportBackupDialogState();
+}
+
+class _ImportBackupDialogState extends State<_ImportBackupDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Importar backup'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLines: 8,
+        keyboardType: TextInputType.multiline,
+        decoration: const InputDecoration(
+          hintText: 'Cola aqui o JSON do backup',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: const Text('Importar'),
+        ),
+      ],
+    );
+  }
+}
+
 /// Confirmação de eliminação (tarefa, nota, arquivo...).
 Future<bool?> showConfirmPopup(
   BuildContext context, {
