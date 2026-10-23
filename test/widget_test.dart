@@ -1,12 +1,15 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:task_note/main.dart';
 import 'package:task_note/models.dart';
 import 'package:task_note/storage.dart';
+import 'package:task_note/theme.dart';
 
 Task _task(String title, {bool done = false}) =>
     Task(id: 'id-$title', title: title, done: done);
@@ -605,6 +608,95 @@ void main() {
       (_stored(prefs)['settings'] as Map<String, dynamic>)['noteSort'],
       'title',
     );
+  });
+
+  group('visual', () {
+    testWidgets('Mudar a cor de destaque altera o tema',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(const TaskNoteApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.settings_outlined));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('verde'));
+      await tester.pumpAndSettle();
+
+      final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+      final expected =
+          ColorScheme.fromSeed(seedColor: Colors.green).primary;
+      expect(app.theme?.colorScheme.primary, expected);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        (_stored(prefs)['settings'] as Map<String, dynamic>)['seed'],
+        'verde',
+      );
+    });
+
+    testWidgets('Mudar o tamanho do texto afeta a app',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(const TaskNoteApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.settings_outlined));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('A⁺'));
+      await tester.pumpAndSettle();
+
+      // O texto renderiza com o fator 1.15.
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.text('Definições').first,
+      );
+      expect(paragraph.textScaler.scale(10), closeTo(11.5, 0.01));
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        (_stored(prefs)['settings'] as Map<String, dynamic>)['textScale'],
+        'large',
+      );
+    });
+
+    test('buildAppTheme aplica a fonte e a cor escolhidas', () {
+      final theme = buildAppTheme(
+        Brightness.light,
+        seedColor: kSeedColors['teal']!,
+        fontKey: 'lato',
+      );
+      expect(
+        theme.textTheme.bodyMedium?.fontFamily,
+        GoogleFonts.lato().fontFamily,
+      );
+      expect(
+        theme.colorScheme.primary,
+        ColorScheme.fromSeed(seedColor: kSeedColors['teal']!).primary,
+      );
+    });
+
+    testWidgets('Opção Dinâmica (Material You) fica guardada',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(const TaskNoteApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.settings_outlined));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Dinâmica (Material You)'));
+      await tester.pumpAndSettle();
+
+      // Sem cores dinâmicas no ambiente de teste, cai no seed por defeito
+      // (indigo) sem erro.
+      final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+      expect(app.theme?.colorScheme.primary,
+          ColorScheme.fromSeed(seedColor: Colors.indigo).primary);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        (_stored(prefs)['settings'] as Map<String, dynamic>)['seed'],
+        'dynamic',
+      );
+    });
   });
 
   group('streaks', () {

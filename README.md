@@ -25,6 +25,10 @@ App de rotina semanal, tarefas e notas pessoais, feito em Flutter.
 
 ### Geral
 - Tema claro, escuro ou do sistema
+- **Personalização** nas definições (secção "Aspeto"):
+  - Cor de destaque: paleta de 10 cores + opção **Dinâmica (Material You)** (Android 12+), com pré-visualização em tempo real
+  - Tamanho do texto: pequeno, normal ou grande
+  - Fonte da app: padrão, Lato, Merriweather, Playfair Display, Roboto Mono ou Caveat
 - Backup completo: exportar (partilhar ou copiar JSON) e importar
 - Dados guardados localmente (SharedPreferences), com migração automática dos dados da v1
 
@@ -48,9 +52,10 @@ test/
 ## Packages
 
 - `shared_preferences` — persistência local
-- `google_fonts` — tipos de letra das notas
+- `google_fonts` — tipos de letra das notas e da app
 - `share_plus` — partilha do backup
 - `uuid` — identificadores de tarefas/notas
+- `dynamic_color` — cores dinâmicas do Android (Material You)
 
 ## Comandos
 
