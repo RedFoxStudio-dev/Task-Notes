@@ -414,8 +414,14 @@ void main() {
 
     expect(find.text('Tarefa para arquivar'), findsNothing);
 
-    // Nas definições, a tarefa está no arquivo.
+    // Nas definições, a tarefa está no arquivo (secção abaixo da dobra).
     await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Tarefa para arquivar'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     expect(find.text('Tarefa para arquivar'), findsOneWidget);
 

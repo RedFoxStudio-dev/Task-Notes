@@ -104,7 +104,11 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Aparência', style: Theme.of(context).textTheme.titleMedium),
+          Text('Aspeto', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          _PreviewCard(scheme: scheme),
+          const SizedBox(height: 16),
+          Text('Tema', style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: 8),
           SegmentedButton<ThemeMode>(
             segments: const [
@@ -135,6 +139,31 @@ class _SettingsPageState extends State<SettingsPage> {
               widget.onChanged();
             },
           ),
+          const SizedBox(height: 16),
+          Text('Cor de destaque',
+              style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 8),
+          _SeedColorPicker(data: widget.data, onChanged: widget.onChanged),
+          const SizedBox(height: 16),
+          Text('Tamanho do texto',
+              style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'small', label: Text('A⁻')),
+              ButtonSegment(value: 'normal', label: Text('A')),
+              ButtonSegment(value: 'large', label: Text('A⁺')),
+            ],
+            selected: {widget.data.textScale},
+            onSelectionChanged: (selection) {
+              widget.data.textScale = selection.first;
+              widget.onChanged();
+            },
+          ),
+          const SizedBox(height: 16),
+          Text('Fonte da app', style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 8),
+          _AppFontPicker(data: widget.data, onChanged: widget.onChanged),
           const SizedBox(height: 24),
           Text('Arquivo', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
@@ -213,6 +242,192 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Cartão de pré-visualização: reflete o tema em tempo real.
+class _PreviewCard extends StatelessWidget {
+  const _PreviewCard({required this.scheme});
+
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: scheme.primaryContainer.withValues(alpha: 0.45),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.palette_outlined, size: 20, color: scheme.primary),
+                const SizedBox(width: 8),
+                Text('Pré-visualização',
+                    style: Theme.of(context).textTheme.titleSmall),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text('Assim ficam os cartões e o texto da app.'),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                FilledButton(
+                  onPressed: () {},
+                  child: const Text('Botão'),
+                ),
+                const SizedBox(width: 16),
+                const Checkbox(value: true, onChanged: null),
+                const Text('Tarefa feita',
+                    style: TextStyle(decoration: TextDecoration.lineThrough)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Linha de círculos para escolher a cor de destaque (com opção Dinâmica).
+class _SeedColorPicker extends StatelessWidget {
+  const _SeedColorPicker({required this.data, required this.onChanged});
+
+  final AppData data;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDynamic = data.seed == kDynamicSeed;
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _SeedSwatch(
+          tooltip: 'Dinâmica (Material You)',
+          selected: isDynamic,
+          gradient: const [
+            Colors.purple,
+            Colors.orange,
+            Colors.teal,
+          ],
+          icon: isDynamic
+              ? const Icon(Icons.check, size: 20, color: Colors.white)
+              : const Icon(Icons.auto_awesome, size: 18, color: Colors.white),
+          onTap: () {
+            data.seed = kDynamicSeed;
+            onChanged();
+          },
+        ),
+        for (final entry in kSeedColors.entries)
+          _SeedSwatch(
+            tooltip: entry.key,
+            selected: data.seed == entry.key,
+            color: entry.value,
+            onTap: () {
+              data.seed = entry.key;
+              onChanged();
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _SeedSwatch extends StatelessWidget {
+  const _SeedSwatch({
+    required this.tooltip,
+    required this.selected,
+    required this.onTap,
+    this.color,
+    this.gradient,
+    this.icon,
+  });
+
+  final String tooltip;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color? color;
+  final List<Color>? gradient;
+  final Widget? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final checkColor =
+        color != null && color!.computeLuminance() > 0.5
+            ? Colors.black
+            : Colors.white;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: gradient == null ? color : null,
+            gradient:
+                gradient == null ? null : LinearGradient(colors: gradient!),
+            border: Border.all(
+              color: selected ? scheme.primary : scheme.outlineVariant,
+              width: selected ? 2.5 : 1,
+            ),
+          ),
+          child: selected
+              ? Icon(Icons.check, size: 20, color: checkColor)
+              : icon,
+        ),
+      ),
+    );
+  }
+}
+
+/// Seletor da fonte global da app.
+class _AppFontPicker extends StatelessWidget {
+  const _AppFontPicker({required this.data, required this.onChanged});
+
+  final AppData data;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final current = kNoteFonts[data.appFont]?.label ?? 'Padrão';
+    return PopupMenuButton<String>(
+      tooltip: 'Escolher fonte da app',
+      onSelected: (font) {
+        data.appFont = font;
+        onChanged();
+      },
+      itemBuilder: (context) => [
+        for (final entry in kNoteFonts.entries)
+          PopupMenuItem(
+            value: entry.key,
+            child: Text(
+              entry.value.label,
+              style: entry.value.build?.call(fontSize: 16),
+            ),
+          ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.font_download_outlined, size: 20, color: scheme.primary),
+            const SizedBox(width: 6),
+            Text(current),
+            const Icon(Icons.arrow_drop_down),
+          ],
+        ),
       ),
     );
   }
