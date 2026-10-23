@@ -1,3 +1,4 @@
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 
 import 'models.dart';
@@ -72,18 +73,42 @@ class _TaskNoteAppState extends State<TaskNoteApp> with WidgetsBindingObserver {
         ),
       );
     }
-    return MaterialApp(
-      title: 'Task Notes',
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(Brightness.light),
-      darkTheme: buildAppTheme(Brightness.dark),
-      themeMode: data.theme,
-      home: RootPage(
-        data: data,
-        storage: _storage,
-        onDataChanged: _onDataChanged,
-        onReplaceData: _onReplaceData,
-      ),
+    return DynamicColorBuilder(
+      builder: (lightDynamic, darkDynamic) {
+        final useDynamic = data.seed == kDynamicSeed;
+        final seedColor = kSeedColors[data.seed] ?? Colors.indigo;
+        return MaterialApp(
+          title: 'Task Notes',
+          debugShowCheckedModeBanner: false,
+          theme: buildAppTheme(
+            Brightness.light,
+            seedColor: seedColor,
+            fontKey: data.appFont,
+            dynamicScheme: useDynamic ? lightDynamic : null,
+          ),
+          darkTheme: buildAppTheme(
+            Brightness.dark,
+            seedColor: seedColor,
+            fontKey: data.appFont,
+            dynamicScheme: useDynamic ? darkDynamic : null,
+          ),
+          themeMode: data.theme,
+          home: RootPage(
+            data: data,
+            storage: _storage,
+            onDataChanged: _onDataChanged,
+            onReplaceData: _onReplaceData,
+          ),
+          builder: (context, child) {
+            final scale = kTextScales[data.textScale] ?? 1.0;
+            return MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(scale)),
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
+        );
+      },
     );
   }
 }

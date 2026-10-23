@@ -55,6 +55,30 @@ final Map<String, ({String label, NoteFontBuilder? build})> kNoteFonts = {
   'playfair_display': (label: 'Playfair Display', build: GoogleFonts.playfairDisplay),
 };
 
+/// Cores de destaque disponíveis nas definições (chave → cor).
+const Map<String, Color> kSeedColors = {
+  'indigo': Colors.indigo,
+  'azul': Colors.blue,
+  'teal': Colors.teal,
+  'verde': Colors.green,
+  'laranja': Colors.orange,
+  'ambar': Colors.amber,
+  'rosa': Colors.pink,
+  'roxo': Colors.purple,
+  'castanho': Colors.brown,
+  'cinza': Colors.blueGrey,
+};
+
+/// Valor especial de `settings.seed` que ativa as cores dinâmicas (Material You).
+const kDynamicSeed = 'dynamic';
+
+/// Escalas de texto disponíveis (chave → fator).
+const Map<String, double> kTextScales = {
+  'small': 0.9,
+  'normal': 1.0,
+  'large': 1.15,
+};
+
 class Task {
   String id;
   String title;
@@ -180,6 +204,15 @@ class AppData {
   /// Ordenação da lista de notas: 'recent' | 'title'
   String noteSort;
 
+  /// Cor de destaque: chave em [kSeedColors] ou [kDynamicSeed].
+  String seed;
+
+  /// Escala de texto: chave em [kTextScales].
+  String textScale;
+
+  /// Fonte global da app: chave em [kNoteFonts].
+  String appFont;
+
   AppData({
     this.version = currentVersion,
     Map<int, List<Task>>? days,
@@ -189,6 +222,9 @@ class AppData {
     List<Note>? notes,
     this.themeMode = 'system',
     this.noteSort = 'recent',
+    this.seed = 'indigo',
+    this.textScale = 'normal',
+    this.appFont = 'padrao',
   })  : days = days ?? {for (var i = 1; i <= 7; i++) i: <Task>[]},
         lastReset = lastReset ?? {},
         history = history ?? {},
@@ -267,11 +303,22 @@ class AppData {
     }
 
     final settings = json['settings'];
-    if (settings is Map<String, dynamic> && settings['themeMode'] is String) {
-      data.themeMode = settings['themeMode'] as String;
-    }
-    if (settings is Map<String, dynamic> && settings['noteSort'] is String) {
-      data.noteSort = settings['noteSort'] as String;
+    if (settings is Map<String, dynamic>) {
+      if (settings['themeMode'] is String) {
+        data.themeMode = settings['themeMode'] as String;
+      }
+      if (settings['noteSort'] is String) {
+        data.noteSort = settings['noteSort'] as String;
+      }
+      if (settings['seed'] is String) {
+        data.seed = settings['seed'] as String;
+      }
+      if (settings['textScale'] is String) {
+        data.textScale = settings['textScale'] as String;
+      }
+      if (settings['appFont'] is String) {
+        data.appFont = settings['appFont'] as String;
+      }
     }
 
     return data;
@@ -291,7 +338,13 @@ class AppData {
         },
         'archive': archive.map((t) => t.toJson()).toList(),
         'notes': notes.map((n) => n.toJson()).toList(),
-        'settings': {'themeMode': themeMode, 'noteSort': noteSort},
+        'settings': {
+          'themeMode': themeMode,
+          'noteSort': noteSort,
+          'seed': seed,
+          'textScale': textScale,
+          'appFont': appFont,
+        },
       };
 
   /// Reconstrói os dados a partir de um backup exportado.

@@ -493,7 +493,10 @@ void main() {
         fontSize: 20,
         updatedAt: 1234,
       ))
-      ..themeMode = 'dark';
+      ..themeMode = 'dark'
+      ..seed = 'teal'
+      ..textScale = 'large'
+      ..appFont = 'lato';
 
     final storage = AppStorage();
     final json = storage.exportJson(data);
@@ -508,6 +511,14 @@ void main() {
     expect(storage.importJson('isto não é json'), isNull);
     expect(storage.importJson('[1, 2, 3]'), isNull);
     expect(storage.importJson('{"foo": 1}'), isNull);
+  });
+
+  test('Backup antigo sem definições visuais carrega com defaults', () {
+    final data = AppData.tryParseBackup('{"days": {}}');
+    expect(data, isNotNull);
+    expect(data!.seed, 'indigo');
+    expect(data.textScale, 'normal');
+    expect(data.appFont, 'padrao');
   });
 
   testWidgets('Escolher tema escuro nas definições', (WidgetTester tester) async {
