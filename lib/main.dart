@@ -118,6 +118,24 @@ class _RootPageState extends State<RootPage> {
         title: Text(titles[_tab]),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          if (_tab == 2)
+            IconButton(
+              tooltip: widget.data.noteSort == 'title'
+                  ? 'Ordenar por recentes'
+                  : 'Ordenar por título',
+              icon: Icon(
+                widget.data.noteSort == 'title'
+                    ? Icons.schedule
+                    : Icons.sort_by_alpha,
+              ),
+              onPressed: () {
+                setState(() {
+                  widget.data.noteSort =
+                      widget.data.noteSort == 'title' ? 'recent' : 'title';
+                });
+                widget.onDataChanged();
+              },
+            ),
           IconButton(
             tooltip: 'Definições',
             icon: const Icon(Icons.settings_outlined),

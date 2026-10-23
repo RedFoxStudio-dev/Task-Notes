@@ -177,6 +177,9 @@ class AppData {
   /// 'system' | 'light' | 'dark'
   String themeMode;
 
+  /// Ordenação da lista de notas: 'recent' | 'title'
+  String noteSort;
+
   AppData({
     this.version = currentVersion,
     Map<int, List<Task>>? days,
@@ -185,6 +188,7 @@ class AppData {
     List<Task>? archive,
     List<Note>? notes,
     this.themeMode = 'system',
+    this.noteSort = 'recent',
   })  : days = days ?? {for (var i = 1; i <= 7; i++) i: <Task>[]},
         lastReset = lastReset ?? {},
         history = history ?? {},
@@ -266,6 +270,9 @@ class AppData {
     if (settings is Map<String, dynamic> && settings['themeMode'] is String) {
       data.themeMode = settings['themeMode'] as String;
     }
+    if (settings is Map<String, dynamic> && settings['noteSort'] is String) {
+      data.noteSort = settings['noteSort'] as String;
+    }
 
     return data;
   }
@@ -284,7 +291,7 @@ class AppData {
         },
         'archive': archive.map((t) => t.toJson()).toList(),
         'notes': notes.map((n) => n.toJson()).toList(),
-        'settings': {'themeMode': themeMode},
+        'settings': {'themeMode': themeMode, 'noteSort': noteSort},
       };
 
   /// Reconstrói os dados a partir de um backup exportado.

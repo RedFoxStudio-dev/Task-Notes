@@ -530,6 +530,66 @@ void main() {
     );
   });
 
+  testWidgets('Desfazer arquivo devolve a tarefa ao dia',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    await _addTaskViaPopup(tester, 'Tarefa rápida');
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Arquivar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tarefa rápida'), findsNothing);
+
+    await tester.tap(find.text('Desfazer'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tarefa rápida'), findsOneWidget);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(_stored(prefs)['archive'], isEmpty);
+  });
+
+  testWidgets('Ordenar notas por recentes ou por título',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const TaskNoteApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.descendant(
+      of: find.byType(NavigationBar),
+      matching: find.text('Notas'),
+    ));
+    await tester.pumpAndSettle();
+
+    // Criar 'Abacate' e depois 'Zebra' (mais recente).
+    for (final title in const ['Abacate', 'Zebra']) {
+      await tester.tap(find.byTooltip('Nova nota'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), title);
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+    }
+
+    // Ordenação por recentes: a mais nova ('Zebra') fica em cima.
+    double topOf(String title) =>
+        tester.getTopLeft(find.text(title)).dy;
+    expect(topOf('Zebra'), lessThan(topOf('Abacate')));
+
+    // Alternar para ordenação por título.
+    await tester.tap(find.byIcon(Icons.sort_by_alpha));
+    await tester.pumpAndSettle();
+    expect(topOf('Abacate'), lessThan(topOf('Zebra')));
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      (_stored(prefs)['settings'] as Map<String, dynamic>)['noteSort'],
+      'title',
+    );
+  });
+
   group('streaks', () {
     String k(int daysAgo) =>
         dateKey(DateTime.now().subtract(Duration(days: daysAgo)));

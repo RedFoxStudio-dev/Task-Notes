@@ -83,12 +83,31 @@ class _RoutinePageState extends State<RoutinePage> {
   }
 
   void _archiveTask(Task task) {
+    final day = _selectedDay;
     setState(() {
-      task.day = _selectedDay;
+      task.day = day;
       widget.data.archive.add(task);
       _tasks.remove(task);
     });
     _saved();
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text('"${task.title}" arquivada'),
+        action: SnackBarAction(
+          label: 'Desfazer',
+          onPressed: () {
+            setState(() {
+              widget.data.archive.remove(task);
+              task.day = null;
+              widget.data.tasksFor(day).add(task);
+            });
+            if (day == _today) widget.data.recordDay(day);
+            widget.onChanged();
+          },
+        ),
+      ));
   }
 
   void _toggleAllTasks() {

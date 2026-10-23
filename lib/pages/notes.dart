@@ -25,7 +25,17 @@ class NotesPage extends StatefulWidget {
 class _NotesPageState extends State<NotesPage> {
   List<Note> get _notes {
     final notes = [...widget.data.notes];
-    notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final byTitle = widget.data.noteSort == 'title';
+    notes.sort((a, b) {
+      if (byTitle) {
+        final titleA =
+            a.title.trim().isEmpty ? 'Sem título' : a.title.trim().toLowerCase();
+        final titleB =
+            b.title.trim().isEmpty ? 'Sem título' : b.title.trim().toLowerCase();
+        return titleA.compareTo(titleB);
+      }
+      return b.updatedAt.compareTo(a.updatedAt);
+    });
     return notes;
   }
 
