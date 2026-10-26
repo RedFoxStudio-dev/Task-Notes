@@ -64,3 +64,8 @@ flutter run
 flutter test
 flutter analyze
 ```
+
+
+
+menu lateral
+categorias (para agrupar notas)
